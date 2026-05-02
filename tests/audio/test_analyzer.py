@@ -1,5 +1,4 @@
 import numpy as np
-import pytest
 import soundfile as sf
 from audio.analyzer import detect_segments
 
@@ -72,14 +71,17 @@ def test_detect_segments_filters_short_segments(tmp_path):
 
 def test_detect_segments_top_n(tmp_path):
     sr = 22050
-    audio = np.random.normal(0, 0.01, sr * 120).astype(np.float32)
-    audio[sr * 10 : sr * 30] = np.random.normal(0, 0.9, sr * 20).astype(np.float32)
-    audio[sr * 50 : sr * 70] = np.random.normal(0, 0.7, sr * 20).astype(np.float32)
-    audio[sr * 90 : sr * 110] = np.random.normal(0, 0.5, sr * 20).astype(np.float32)
+    # Three loud sections with well-separated amplitudes and a quiet background.
+    # min_duration=10.0 keeps the focus on testing top-n truncation rather than
+    # the duration filter (loud sections are each ~20 s, well above the cutoff).
+    audio = np.random.normal(0, 0.005, sr * 150).astype(np.float32)
+    audio[sr * 10 : sr * 35] = np.random.normal(0, 0.9, sr * 25).astype(np.float32)
+    audio[sr * 60 : sr * 85] = np.random.normal(0, 0.7, sr * 25).astype(np.float32)
+    audio[sr * 110 : sr * 135] = np.random.normal(0, 0.5, sr * 25).astype(np.float32)
     wav = tmp_path / "test.wav"
     _write_wav(wav, audio, sr)
 
-    segments = detect_segments(str(wav), top=2)
+    segments = detect_segments(str(wav), min_duration=10.0, top=2)
 
     assert len(segments) == 2
 

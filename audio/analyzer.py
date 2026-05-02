@@ -30,9 +30,15 @@ def detect_segments(
         return []
 
     max_rms = max(s["_peak_rms"] for s in segments)
-    for s in segments:
-        s["energy_score"] = round(s["_peak_rms"] / max_rms, 2)
-        del s["_peak_rms"]
+    segments = [
+        {
+            "start": s["start"],
+            "end": s["end"],
+            "duration": s["duration"],
+            "energy_score": round(s["_peak_rms"] / max_rms, 2),
+        }
+        for s in segments
+    ]
 
     segments.sort(key=lambda s: s["energy_score"], reverse=True)
 
@@ -51,16 +57,19 @@ def _mask_to_segments(
     in_segment = False
     start = 0.0
     peak_rms = 0.0
+    last_loud_t = 0.0
 
     for i, (is_loud, t) in enumerate(zip(loud_mask, times)):
         if is_loud and not in_segment:
             in_segment = True
             start = float(t)
             peak_rms = float(rms[i])
+            last_loud_t = float(t)
         elif is_loud and in_segment:
             peak_rms = max(peak_rms, float(rms[i]))
+            last_loud_t = float(t)
         elif not is_loud and in_segment:
-            end = float(t)
+            end = last_loud_t
             segments.append(
                 {
                     "start": round(start, 2),
@@ -72,7 +81,7 @@ def _mask_to_segments(
             in_segment = False
 
     if in_segment:
-        end = float(times[-1])
+        end = last_loud_t
         segments.append(
             {
                 "start": round(start, 2),
@@ -95,9 +104,13 @@ def _merge_segments(segments: list[dict], merge_gap: float) -> list[dict]:
     for seg in ordered[1:]:
         last = merged[-1]
         if seg["start"] - last["end"] <= merge_gap:
-            last["end"] = max(last["end"], seg["end"])
-            last["duration"] = round(last["end"] - last["start"], 2)
-            last["_peak_rms"] = max(last["_peak_rms"], seg["_peak_rms"])
+            new_end = max(last["end"], seg["end"])
+            merged[-1] = {
+                "start": last["start"],
+                "end": new_end,
+                "duration": round(new_end - last["start"], 2),
+                "_peak_rms": max(last["_peak_rms"], seg["_peak_rms"]),
+            }
         else:
             merged.append(seg.copy())
 
