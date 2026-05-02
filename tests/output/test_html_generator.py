@@ -20,7 +20,7 @@ def test_generate_player_html_returns_string():
 def test_generate_player_html_contains_audio_element():
     html = generate_player_html("dortmund.wav", SEGMENTS, META)
     assert "<audio" in html
-    assert "dortmund.wav" in html
+    assert 'src="dortmund.wav"' in html
 
 
 def test_generate_player_html_contains_all_segment_timestamps():
@@ -44,4 +44,10 @@ def test_generate_player_html_has_click_to_seek():
 
 def test_generate_player_html_shows_segment_count():
     html = generate_player_html("dortmund.wav", SEGMENTS, META)
-    assert "2" in html
+    assert "2 Segmente" in html
+
+
+def test_generate_player_html_empty_segments():
+    html = generate_player_html("test.wav", [], {"file": "test.wav", "duration_total": 5400.0, "segments_found": 0})
+    assert "<audio" in html
+    assert "0 Segmente" in html
