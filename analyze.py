@@ -5,7 +5,7 @@ import json
 import sys
 from pathlib import Path
 
-import librosa
+import soundfile as sf
 
 from audio.analyzer import detect_segments
 from output.html_generator import generate_player_html
@@ -45,7 +45,7 @@ def main() -> None:
 
     print(f"Analysiere {wav_path.name} ...")
 
-    duration = librosa.get_duration(path=str(wav_path))
+    duration = sf.info(str(wav_path)).duration
 
     segments = detect_segments(
         str(wav_path),
@@ -72,7 +72,8 @@ def main() -> None:
     html_path = out_dir / f"{stem}-player.html"
 
     json_path.write_text(
-        json.dumps({**meta, "segments": segments}, indent=2, ensure_ascii=False)
+        json.dumps({**meta, "segments": segments}, indent=2, ensure_ascii=False),
+        encoding="utf-8",
     )
     html_path.write_text(
         generate_player_html(wav_path.name, segments, meta),
@@ -93,8 +94,11 @@ def main() -> None:
         from audio.cutter import cut_segments
 
         clip_paths = cut_segments(str(wav_path), segments)
-        clips_dir = Path(clip_paths[0]).parent
-        print(f"  -> {clips_dir.name}/ ({len(clip_paths)} Clips)")
+        if clip_paths:
+            clips_dir = Path(clip_paths[0]).parent
+            print(f"  -> {clips_dir.name}/ ({len(clip_paths)} Clips)")
+        else:
+            print("Warning: --cut produced no output clips", file=sys.stderr)
 
 
 if __name__ == "__main__":
