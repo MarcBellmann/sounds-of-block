@@ -57,6 +57,10 @@ def main() -> None:
     wav_path = Path(args.wav).resolve()
     json_path = wav_path.parent / f"{wav_path.stem}-segments.json"
 
+    if not wav_path.exists():
+        print(f"Error: {wav_path.name} not found.", file=sys.stderr)
+        sys.exit(1)
+
     if not json_path.exists():
         print(
             f"Error: {json_path.name} not found. Run analyze.py first.",

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import html as _html
 
+from output.format_helpers import format_time
+
 
 def generate_player_html(
     wav_filename: str,
@@ -11,7 +13,7 @@ def generate_player_html(
     segment_items = "\n".join(
         _render_segment(i + 1, s) for i, s in enumerate(segments)
     )
-    total_str = _format_time(meta.get("duration_total", 0))
+    total_str = format_time(meta.get("duration_total", 0))
     safe_file = _html.escape(meta['file'])
     safe_src = _html.escape(wav_filename, quote=True)
     safe_count = _html.escape(str(meta['segments_found']))
@@ -58,8 +60,8 @@ def generate_player_html(
 
 
 def _render_segment(index: int, seg: dict) -> str:
-    start_str = _format_time(seg["start"])
-    end_str = _format_time(seg["end"])
+    start_str = format_time(seg["start"])
+    end_str = format_time(seg["end"])
     dur_str = _format_duration(seg["duration"])
     dots = _energy_dots(seg["energy_score"])
 
@@ -75,13 +77,6 @@ def _render_segment(index: int, seg: dict) -> str:
 def _energy_dots(score: float) -> str:
     filled = max(0, min(5, round(score * 5)))
     return "●" * filled + "○" * (5 - filled)
-
-
-def _format_time(seconds: float) -> str:
-    h = int(seconds // 3600)
-    m = int((seconds % 3600) // 60)
-    s = int(seconds % 60)
-    return f"{h:02d}h{m:02d}m{s:02d}s"
 
 
 def _format_duration(seconds: float) -> str:

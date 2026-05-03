@@ -5,6 +5,8 @@ from pathlib import Path
 
 from pydub import AudioSegment
 
+from output.format_helpers import format_time
+
 
 def cut_segments(
     wav_path: str,
@@ -23,7 +25,7 @@ def cut_segments(
         end_ms = int(seg["end"] * 1000)
         clip = audio[start_ms:end_ms]
 
-        timestamp = _format_time(seg["start"])
+        timestamp = format_time(seg["start"])
         filename = f"{i:02d}-{timestamp}.{output_format}"
         out_path = clips_dir / filename
 
@@ -45,13 +47,6 @@ def cut_segments(
     return output_paths
 
 
-def _format_time(seconds: float) -> str:
-    h = int(seconds // 3600)
-    m = int((seconds % 3600) // 60)
-    s = int(seconds % 60)
-    return f"{h:02d}h{m:02d}m{s:02d}s"
-
-
 def _encode_with_ffmpeg(input_wav: str, output_file: str, fmt: str = "mp3") -> None:
     """Encode WAV to target format using ffmpeg.
 
@@ -68,4 +63,11 @@ def _encode_with_ffmpeg(input_wav: str, output_file: str, fmt: str = "mp3") -> N
         "-f", fmt,
         str(output_abs),
     ]
-    subprocess.run(cmd, check=True, capture_output=True)
+    try:
+        subprocess.run(cmd, check=True, capture_output=True)
+    except FileNotFoundError:
+        raise RuntimeError("ffmpeg not found. Install ffmpeg and ensure it is on PATH.") from None
+    except subprocess.CalledProcessError as exc:
+        raise RuntimeError(
+            f"ffmpeg failed for {input_wav}: {exc.stderr.decode(errors='replace')}"
+        ) from exc

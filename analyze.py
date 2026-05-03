@@ -8,6 +8,7 @@ from pathlib import Path
 import soundfile as sf
 
 from audio.analyzer import detect_segments
+from output.format_helpers import format_time
 from output.html_generator import generate_player_html
 
 
@@ -85,10 +86,7 @@ def main() -> None:
     print(f"  -> {html_path.name}")
 
     for i, seg in enumerate(segments, 1):
-        h = int(seg["start"] // 3600)
-        m = int((seg["start"] % 3600) // 60)
-        s = int(seg["start"] % 60)
-        print(f"  {i:02d}. {h:02d}h{m:02d}m{s:02d}s  Energie: {seg['energy_score']:.0%}")
+        print(f"  {i:02d}. {format_time(seg['start'])}  Energie: {seg['energy_score']:.0%}")
 
     if args.cut and segments:
         from audio.cutter import cut_segments
