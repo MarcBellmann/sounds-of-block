@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 import socket
 import sys
 from pathlib import Path
@@ -39,9 +38,12 @@ def create_app(wav_path: str, json_path: str) -> Flask:
 
 
 def _local_ip() -> str:
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-        s.connect(("8.8.8.8", 80))
-        return s.getsockname()[0]
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("8.8.8.8", 80))
+            return s.getsockname()[0]
+    except OSError:
+        return "127.0.0.1"
 
 
 def main() -> None:
