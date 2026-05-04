@@ -5,7 +5,6 @@ import json
 import os
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 import boto3
@@ -138,17 +137,20 @@ def publish(wav_path: Path, title: str | None) -> None:
 
     client = _r2_client()
 
-    # Convert WAV → MP3 in a temp dir
-    with tempfile.TemporaryDirectory() as tmp:
-        mp3_path = Path(tmp) / f"{stem}.mp3"
+    # Convert WAV → MP3 next to WAV (snap-confined ffmpeg can't write to /tmp)
+    mp3_path = wav_path.parent / f"{stem}.mp3"
+    mp3_key = f"recordings/{stem}.mp3"
+    json_key = f"recordings/{stem}-segments.json"
+
+    try:
         print(f"Konvertiere {wav_path.name} → MP3 …")
         _wav_to_mp3(wav_path, mp3_path)
 
-        mp3_key = f"recordings/{stem}.mp3"
-        json_key = f"recordings/{stem}-segments.json"
-
         _upload(client, mp3_path, mp3_key, "audio/mpeg")
         _upload(client, json_path, json_key, "application/json")
+    finally:
+        if mp3_path.exists():
+            mp3_path.unlink()
 
     mp3_url = _public_url(mp3_key)
     json_url = _public_url(json_key)
