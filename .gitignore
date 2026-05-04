@@ -9,3 +9,4 @@ dist/
 build/
 .superpowers/
 .pytest_tmp/
+.env

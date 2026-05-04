@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sounds of Block</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f0f0f;
+    --surface: #1a1a1a;
+    --border: #2a2a2a;
+    --accent: #e8c84b;
+    --text: #e0e0e0;
+    --muted: #888;
+    --radius: 10px;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    min-height: 100dvh;
+    padding: 16px;
+  }
+
+  h1 {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 20px;
+    letter-spacing: 0.02em;
+  }
+
+  #recordings {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+
+  .rec-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    user-select: none;
+  }
+
+  .rec-card:hover { border-color: var(--accent); }
+  .rec-card.active {
+    border-color: var(--accent);
+    background: #222210;
+  }
+
+  .rec-title {
+    font-weight: 600;
+    font-size: 0.95rem;
+    margin-bottom: 3px;
+  }
+
+  .rec-meta {
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+
+  #player-panel {
+    display: none;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+  }
+
+  #player-title {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: var(--accent);
+  }
+
+  audio {
+    width: 100%;
+    height: 44px;
+    accent-color: var(--accent);
+    margin-bottom: 16px;
+  }
+
+  #segments-label {
+    font-size: 0.78rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+  }
+
+  #segment-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .seg-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 10px 14px;
+    cursor: pointer;
+    text-align: left;
+    color: var(--text);
+    font-size: 0.88rem;
+    transition: border-color 0.12s, background 0.12s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .seg-btn:hover { border-color: var(--accent); background: #1c1c1c; }
+  .seg-btn.playing { border-color: var(--accent); background: #222210; }
+
+  .seg-index {
+    font-size: 0.72rem;
+    color: var(--muted);
+    min-width: 20px;
+    text-align: right;
+  }
+
+  .seg-time {
+    font-variant-numeric: tabular-nums;
+    font-size: 0.9rem;
+    min-width: 54px;
+  }
+
+  .seg-dots {
+    flex: 1;
+    display: flex;
+    gap: 3px;
+    align-items: center;
+  }
+
+  .dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    opacity: 0.25;
+  }
+
+  .dot.on { opacity: 1; }
+
+  .status-msg {
+    text-align: center;
+    padding: 24px;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+
+  .error-msg { color: #e06b6b; }
+</style>
+</head>
+<body>
+
+<h1>Sounds of Block</h1>
+
+<div id="recordings">
+  <div class="status-msg">Lade Aufnahmen …</div>
+</div>
+
+<div id="player-panel">
+  <div id="player-title"></div>
+  <audio id="audio" controls preload="none"></audio>
+  <div id="segments-label">Höhepunkte</div>
+  <div id="segment-list"></div>
+</div>
+
+<script>
+const CATALOG_URL = "catalog.json";
+
+const $id = id => document.getElementById(id);
+const audio = $id("audio");
+let activeSegBtns = [];
+
+function fmtTime(sec) {
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = Math.floor(sec % 60);
+  if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+function fmtDuration(sec) {
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  return h > 0 ? `${h}h ${m}min` : `${m} min`;
+}
+
+function makeDots(score) {
+  const filled = Math.round(score * 5);
+  const wrap = document.createElement("span");
+  wrap.className = "seg-dots";
+  for (let i = 0; i < 5; i++) {
+    const dot = document.createElement("span");
+    dot.className = i < filled ? "dot on" : "dot";
+    wrap.appendChild(dot);
+  }
+  return wrap;
+}
+
+function makeSegmentButton(seg, index) {
+  const btn = document.createElement("button");
+  btn.className = "seg-btn";
+
+  const idx = document.createElement("span");
+  idx.className = "seg-index";
+  idx.textContent = String(index + 1);
+
+  const time = document.createElement("span");
+  time.className = "seg-time";
+  time.textContent = fmtTime(seg.start);
+
+  btn.appendChild(idx);
+  btn.appendChild(time);
+  btn.appendChild(makeDots(seg.energy_score));
+
+  return btn;
+}
+
+function renderSegments(segments) {
+  const list = $id("segment-list");
+  list.textContent = "";
+  activeSegBtns = [];
+
+  segments.forEach((seg, i) => {
+    const btn = makeSegmentButton(seg, i);
+    btn.addEventListener("click", () => {
+      audio.currentTime = seg.start;
+      audio.play();
+      activeSegBtns.forEach(b => b.classList.remove("playing"));
+      btn.classList.add("playing");
+    });
+    list.appendChild(btn);
+    activeSegBtns.push(btn);
+  });
+}
+
+function highlightCurrentSegment(segments) {
+  const t = audio.currentTime;
+  activeSegBtns.forEach((btn, i) => {
+    const seg = segments[i];
+    btn.classList.toggle("playing", t >= seg.start && t <= seg.end + 2);
+  });
+}
+
+function makeRecordingCard(rec) {
+  const card = document.createElement("div");
+  card.className = "rec-card";
+
+  const titleEl = document.createElement("div");
+  titleEl.className = "rec-title";
+  titleEl.textContent = rec.title;
+
+  const metaParts = [];
+  if (rec.duration_total) metaParts.push(fmtDuration(rec.duration_total));
+  if (rec.segments_found != null) metaParts.push(`${rec.segments_found} Höhepunkte`);
+
+  const metaEl = document.createElement("div");
+  metaEl.className = "rec-meta";
+  metaEl.textContent = metaParts.join(" · ");
+
+  card.appendChild(titleEl);
+  card.appendChild(metaEl);
+  return card;
+}
+
+async function loadRecording(rec) {
+  $id("player-title").textContent = rec.title;
+  audio.src = rec.mp3_url;
+  audio.load();
+
+  const list = $id("segment-list");
+  list.textContent = "";
+  const loading = document.createElement("div");
+  loading.className = "status-msg";
+  loading.textContent = "Lade Segmente …";
+  list.appendChild(loading);
+
+  $id("player-panel").style.display = "block";
+  $id("player-panel").scrollIntoView({ behavior: "smooth", block: "start" });
+
+  const resp = await fetch(rec.segments_url);
+  if (!resp.ok) throw new Error(`Segments nicht geladen: ${resp.status}`);
+  const data = await resp.json();
+  const segments = data.segments || [];
+  renderSegments(segments);
+
+  audio.ontimeupdate = () => highlightCurrentSegment(segments);
+}
+
+function showError(msg) {
+  const container = $id("recordings");
+  container.textContent = "";
+  const el = document.createElement("div");
+  el.className = "status-msg error-msg";
+  el.textContent = "Fehler: " + msg;
+  container.appendChild(el);
+}
+
+async function init() {
+  try {
+    const resp = await fetch(CATALOG_URL);
+    if (!resp.ok) throw new Error(`catalog.json: ${resp.status}`);
+    const catalog = await resp.json();
+    const recordings = catalog.recordings || [];
+
+    const container = $id("recordings");
+    container.textContent = "";
+
+    if (recordings.length === 0) {
+      const msg = document.createElement("div");
+      msg.className = "status-msg";
+      msg.textContent = "Keine Aufnahmen vorhanden.";
+      container.appendChild(msg);
+      return;
+    }
+
+    let activeCard = null;
+
+    recordings.slice().reverse().forEach(rec => {
+      const card = makeRecordingCard(rec);
+      card.addEventListener("click", async () => {
+        if (activeCard) activeCard.classList.remove("active");
+        card.classList.add("active");
+        activeCard = card;
+        try {
+          await loadRecording(rec);
+        } catch (err) {
+          showError(err.message);
+        }
+      });
+      container.appendChild(card);
+    });
+
+    container.firstElementChild?.click();
+
+  } catch (err) {
+    showError(err.message);
+  }
+}
+
+init();
+</script>
+</body>
+</html>
